@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+
+IFS=':'
+for p in $PATH; do
+    if bins=$(ls "$p" 2>/dev/null) && [ -n "$bins" ]; then
+        var="${var}\\n$bins"
+    fi
+done
+printf "%b" "$var" | tail -n+2 | sort -u

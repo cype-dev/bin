@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+
+nmcli device wifi rescan >/dev/null 2>&1
+IFS="
+"
+for entry in $(nmcli -t device wifi list); do
+    ssid=$(echo "$entry" | cut -d ":" -f 2)
+    signal=$(echo "$entry" | cut -d ":" -f 6)
+    all="$all$signal:$ssid
+"
+done
+printf "%s" "$all" | sort -nr | cut -d ":" -f 2

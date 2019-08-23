@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+
+highlight --base16 --style gruvbox-dark-soft --out-format=truecolor "$@"

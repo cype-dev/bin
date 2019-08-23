@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+flags="--print-query --inline-info --color=16"
+fzf $flags | tail -n 1

@@ -1,0 +1,118 @@
+#!/usr/bin/env sh
+
+XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+dir="${XDG_CONFIG_HOME}/jsm"
+XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/tmp}
+pidsfile="${XDG_RUNTIME_DIR}/jsm-pids"
+IFS="
+"
+
+# Script settings
+timeout=20 # seconds
+connection_retries=5
+retry_interval=2 # seconds
+
+
+# Create single connection
+# $1 = source
+# $2 = sink
+create_connection() {
+    n=0
+    until [ "$n" -ge "$connection_retries" ]; do
+        jack_connect "$1" "$2" 2>/dev/null && \
+            echo "Connected $1 to $2" && \
+            return
+        n=$(("$n" + 1))
+        sleep "$retry_interval";
+    done
+    echo "Connecting $1 to $2 failed" 1>&2
+}
+
+# Clear all connections
+clear_connections() {
+    connections=$(jack_create_session)
+    for line in $connections; do
+        case "$line" in
+            "con: "*)   # Connections to establish
+                con=${line#"con: "}
+                so=$(echo "$con" | awk -F '->' '{print $1}')
+                si=$(echo "$con" | awk -F '->' '{print $2}')
+                jack_disconnect "$so" "$si" >/dev/null 2>&1 &
+        esac
+    done
+}
+
+# Stop the running session by clearing connections and stopping started commands
+stop_session() {
+    clear_connections
+    pids=$(cat "$pidsfile" 2>/dev/null)
+    for pid in $pids; do
+        kill "$pid"
+    done
+    rm "$pidsfile" 2>/dev/null
+}
+
+# Recreate session from session-file
+# $1 = session-file
+start_session() {
+    stop_session
+    session_file=$(cat "$1")
+    for line in $session_file; do
+        case "$line" in
+            "con: "*)   # Connections to establish
+                con=${line#"con: "}
+                so=$(echo "$con" | awk -F '->' '{print $1}') 
+                si=$(echo "$con" | awk -F '->' '{print $2}') 
+                create_connection "$so" "$si" ;;
+            "pre-session: "*) # Commands to run before starting session
+                cmd=${line#"pre-session: "}
+                echo "Running pre-session command: $cmd"
+                eval "$cmd" >/dev/null 2>&1
+                echo "$! " >> "$pidsfile"
+        esac
+    done
+}
+
+# Check if jack is started, wait otherwise
+check_if_running() {
+    result=$(jack_wait -c 2>/dev/null)
+    if [ "$result" != "running" ]; then
+        result=$(jack_wait -wt "$timeout" 2>/dev/null)
+        if [ "$result" = "timeout" ]; then
+            echo "Jack daemon not running"
+            exit 1
+        fi
+    fi
+}
+
+# Read settings file
+read_settings() {
+    settings=$(cat "${dir}/settings")
+    for var in $settings; do
+        case "$var" in
+            "default="*) # The default session
+                session=${var#"default="} ;;
+        esac
+    done
+    if [ -f "${dir}/Sessions/${session}" ]; then
+        echo "Starting session $session"
+        start_session "${dir}/Sessions/${session}"
+    else
+        echo "Session $session not found"
+        exit 1
+    fi
+}
+
+
+check_if_running
+
+case "$1" in
+    start)
+        if [ -f "$2" ]; then
+            start_session "$2"
+        fi ;;
+    stop)
+        stop_session ;;
+    *)
+        read_settings ;;
+esac

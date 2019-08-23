@@ -1,0 +1,40 @@
+#!/usr/bin/env sh
+
+set -e
+
+XDG_DATA_HOME=${XDG_DATA_HOME:-${HOME}/.local/share}
+
+url="http://assets.languagepod101.com/dictionary/japanese/audiomp3.php?"
+
+missing="${XDG_DATA_HOME}/anki_pronunciation/missing.mp3"
+if [ ! -f "$missing" ]; then
+    mkdir -p "${missing%\/*}"
+    curl -s "${url}misssing.mp3" -o "$missing"
+fi
+
+kana=$1
+kanji=$2
+pref=$3
+
+if [ "$#" -gt 1 ]; then
+    url="${url}kanji=${kanji}&"
+
+    if [ "$pref" -eq "2" ]; then
+        name=$kanji
+    else
+        name=$kana
+    fi
+else
+    name=$kana
+fi
+url="${url}kana=${kana}"
+
+curl -s "$url" -o "${name}_dl.mp3" 
+
+if diff -q "$missing" "./${name}_dl.mp3" > /dev/null
+then
+    echo "No audio file found for ${name}"
+    rm "${name}_dl.mp3"
+else
+    mv "${name}_dl.mp3" "${name}.mp3"
+fi

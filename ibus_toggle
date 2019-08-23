@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+if [ "$(ibus engine)" = "anthy" ]; then
+    ibus engine xkb:us::eng
+else
+    ibus engine anthy
+fi

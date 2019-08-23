@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+
+undodir="${HOME}/.undo"
+
+for file in "$undodir"/*; do
+    rep=$(echo "${file#${undodir}/}" | sed "s/%/\\//g")
+    if [ ! -e "$rep" ]; then
+        rm "$file"
+    fi
+done

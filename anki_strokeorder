@@ -1,0 +1,40 @@
+#!/usr/bin/env sh
+
+set -e
+
+XDG_DATA_HOME=${XDG_DATA_HOME:-${HOME}/.local/share}
+
+data_dir="${XDG_DATA_HOME}/anki_strokeorder"
+
+variable=$1
+cur=$(pwd)
+
+if [ -f "${data_dir}/anims/${name}.svg" ]; then
+    cp "${data_dir}/anims/${variable}.svg" "$cur"
+    exit
+fi
+
+if [ ! -d "${data_dir}/kanji" ]; then
+    mkdir -p "$data_dir"
+    download_url=$(curl -s "https://api.github.com/repos/KanjiVG/kanjivg/releases/latest" | grep "browser_download_url" | head -n 1 | awk '{print $2}' | tr -d \")
+    dl_name="kanjivg_latest_release.zip"
+    curl -Ls "$download_url" -o "$dl_name"
+    unzip -q "$dl_name" -d "$data_dir"
+    rm "$dl_name"
+fi
+if [ ! -d "${data_dir}/kanimaji" ]; then
+    git clone "https://github.com/maurimo/kanimaji" "${data_dir}/kanimaji"
+	settings="${data_dir}/kanimaji/settings.py"
+	sed -i 's/^GENERATE_GIF\([[:space:]]*\)= True/GENERATE_GIF\1= False/g' "$settings"
+	sed -i 's/^GENERATE_JS_SVG\([[:space:]]*\)= True/GENERATE_JS_SVG\1= False/g' "$settings"
+fi
+
+utf16=$(echo "$variable" | iconv --silent -f utf8 -t utf16 | tr "\\0" "\\n")
+short=$(echo "$utf16" | hexdump -e '"%X"' | cut -c1-4)
+name=$(echo "0${short}" | tr "[:upper:]" "[:lower:]")
+
+svg_file="${data_dir}/kanji/${name}.svg"
+python2 "${data_dir}/kanimaji/kanimaji.py" "$svg_file"
+mkdir -p "${data_dir}/anims"
+mv "${data_dir}/kanji/${name}_anim.svg" "${data_dir}/anims/${variable}.svg"
+cp "${data_dir}/anims/${variable}.svg" "$cur"

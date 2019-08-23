@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+
+connections=$(jack_lsp -c 2>/dev/null)
+IFS="
+"
+for line in $connections; do
+    case "$line" in
+        "   "*)
+            si=${line#'   '}
+            conn="${so}->${si}"
+            
+            if ! echo "$script" | grep -q "${si}->${so}"; then
+                script="${script}con: ${conn}\\n"
+            fi ;;
+        *)
+            so=$line ;;
+    esac
+done
+printf "%b" "$script"
