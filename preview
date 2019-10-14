@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+dir=$1
+if [ -f "$dir" ]; then
+    query=$(basename "$1")
+    dir=$(dirname "$dir")
+elif [ -z "$dir" ]; then
+    dir=$(pwd)
+fi
+cd "$dir" || exit 1
+rg -l . \
+    | fzf --color=16 --query "$query" --preview \
+        'bat --color=always --style=grid --theme "Monokai Extended" {}' \
+    | xargs -r "$EDITOR" \
