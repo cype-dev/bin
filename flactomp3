@@ -1,0 +1,117 @@
+#!/usr/bin/env sh
+
+filetransform() {
+    s=$1
+    d=$2
+
+    if [ "$overwrite" = 'true' ]; then
+        [ "$silent" = 'true' ] || [ -f "$d" ] \
+            && echo -e "Overwriting \e[1m$d\e[0m" \
+            || echo -e "Creating \e[1m$d\e[0m"
+        ffmpeg -loglevel error -y -i "$s" -codec:a libmp3lame -qscale:a 0 "$d" 
+    elif [ "$overwrite" = 'false' ]; then
+        [ "$silent" = 'true' ] || echo -e "\e[1m$d\e[0m exists, skipped"
+    else
+        [ "$silent" = 'true' ] || echo -e "Creating \e[1m$d\e[0m"
+        ffmpeg -loglevel error -i "$s" -codec:a libmp3lame -qscale:a 0 "$d" 
+    fi
+}
+
+foldertransform() {
+    src=$1
+    dst=$2
+    curr=$3
+
+    for f in "$curr"/*.flac; do
+        # Check if any .flac-files exist
+        if [ -e "$f" ]; then
+            for file in "$curr"/*.flac; do
+                base=$(basename "$file")
+                dir=$(dirname "$file")
+                newdir=$dst/${dir#"$src"}
+                mkdir -p "$newdir"
+                newfile=$newdir/${base%.flac}.mp3
+                filetransform "$file" "$newfile"
+            done
+        fi
+        break
+    done
+}
+
+recurse() {
+    src=$1
+    dst=$2
+    cur=$3
+
+    foldertransform "$src" "$dst" "$cur"
+
+    for file in "$cur"/*; do
+        if [ -d "$file" ]; then
+            recurse "$src" "$dst" "$file"
+        fi
+    done
+}
+
+usage() {
+    echo "flactomp3 - Convert .flac-files to .mp3"
+    echo ""
+    echo "Usage:"
+    echo "  flactomp3 [flags] Source Target"
+    echo ""
+    echo "  Source can either be a file or folder"
+    echo "  Target can only be a folder"
+    echo ""
+    echo "Flags:"
+    echo "  -r    Recurse into directory structure"
+    echo "  -s    Do not print messages to stdout"
+    echo "  -y    Overwrite existing files (no prompt)"
+    echo "  -n    Do not overwrite existing files (no prompt)"
+}
+ 
+# Trap SIGINT so it doesn't just stop ffmpeg
+trap 'exit' INT
+
+recursive='false'
+silent='false'
+overwrite=''
+
+# Parse options
+while getopts ":rsyn" opt; do
+    case $opt in
+        r)
+            recursive='true' ;;
+        h)
+            usage ;;
+        s)
+            silent='true' ;;
+        y)
+            overwrite='true' ;;
+        n)
+            overwrite='false' ;;
+        \?) 
+            echo "Invalid option: -$OPTARG"
+            exit 1 ;;
+    esac
+done
+
+shift $(($OPTIND -1))
+src=$1
+dst=$2
+
+# Check if directory was passed
+if [ -d "$src" ]; then
+    # If -r was passed, recurse folder structure
+    if [ "$recursive" = 'true' ]; then
+        recurse "$src" "$dst" "$src"
+    else
+        foldertransform "$src" "$dst" "$src"
+    fi
+elif [ -f "$src" ] && [ "${src##*.}" = 'flac' ]; then
+    base=$(basename "$src")
+    mkdir -p "$dst"
+    newfile="$dst/${base%.flac}.mp3"
+    filetransform "$src" "$newfile"
+else
+    usage
+    exit 1
+fi

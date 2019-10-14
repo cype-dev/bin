@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+
+if [ ! -d "$1" ]; then
+    echo "Usage: mailnotify BASEDIR"
+    exit 1
+fi
+while folder=$(inotifywait -r -e create,moved_to --format %w "$1"/*/Inbox/new)
+do
+    notify-send -c 'email.arrived' \
+        "New mail in $(echo "$folder" | awk -F / '{print $(NF-3)}')"
+done

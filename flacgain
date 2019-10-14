@@ -1,0 +1,82 @@
+#!/usr/bin/env sh
+
+dir=${*: -1}
+recursive=false
+silent=false
+
+albumgain() {
+    dir=$1
+    for f in "$dir"/*.flac; do
+        # Check if any .flac-files exist
+        if [ -e "$f" ]; then
+            [ "$silent" = 'true' ] \
+                || echo -e "Applying Album-Gain in \e[1m$dir\e[0m"
+            for file in "$dir"/*.flac; do
+                basename=$(basename "$file")
+                [ "$silent" = 'true' ] \
+                    || echo -e "  Applying Album-Gain to \e[1m$basename\e[0m"
+            done
+            metaflac --add-replay-gain "$dir"/*.flac
+        fi
+        break
+    done
+}
+
+trackgain() {
+    file=$1
+    [ "$silent" = true ] || echo "Applying Track-Gain to $file"
+    metaflac --add-replay-gain "$file"
+}
+
+recurse() {
+    dir=$1
+
+    albumgain "$dir"
+
+    for file in "$dir"/*; do
+        if [ -d "$file" ]; then
+            recurse "$file"
+        fi
+    done
+}
+
+usage() {
+    echo "flacgain - Apply (metadata) Album-Gain to .flac-files"
+    echo ""
+    echo "Usage:"
+    echo "  flacgain [flags] Directory/File"
+    echo ""
+    echo "Flags:"
+    echo "  -r    Apply Album-Gain in each subdirectory"
+    echo "  -s    Do not print messages to stdout"
+}
+
+# Parse options
+while getopts ":rs" opt; do
+    case $opt in
+        r)
+            recursive=true ;;
+        h)
+            usage ;;
+        s)
+            silent=true ;;
+        \?) 
+            echo "Invalid option: -$OPTARG"
+            exit 1 ;;
+    esac
+done
+
+# Check if directory was passed
+if [ -d "$dir" ]; then
+    # If -r was passed, recurse folder structure to applyt gain
+    if [ "$recursive" = 'true' ]; then
+        recurse "$dir"
+    else
+        albumgain "$dir"
+    fi
+elif [ -f "$dir" ] && [ "${dir##*.}" = 'flac' ]; then
+    trackgain "$dir"
+else
+    usage
+    exit 1
+fi
