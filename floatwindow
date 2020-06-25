@@ -5,6 +5,6 @@ tmp=$(mktemp -t fzfmenu.XXXXXXXXXX) || exit 1
 trap 'rm $tmp' EXIT
 
 STDIN=$(cat -)
-termite --class="float-center" -t "floatwindow" -e "sh -c 'printf \"$STDIN\" \
-    | $1 >\"$tmp\"'" 2>/dev/null
+$TERMINAL --class="float-center,float-center" -t "floatwindow" \
+    -e "sh" -c "printf \"$STDIN\" | $1 >\"$tmp\"" 2>/dev/null
 cat "$tmp"
