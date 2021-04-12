@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+
+for win in $(xdotool search --name 'qutebrowser'); do
+    if node=$(bspc query -N -n "$win".local); then
+        bspc node -f "$node"
+        qutebrowser --target tab "$@"
+        exit
+    fi
+done
+
+#echo "\033[0;32m$(date +%X) INFO:\033[0m opening in new window"
+qutebrowser --target window -s new_instance_open_target_window last-focused "$@"
